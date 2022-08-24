@@ -1,22 +1,4 @@
-# derived from store_temp_new.py - version 7.1.0 - 17/03/2021
-# 
-# this version goes with cg 2.1.x
-# this version uses also SMASH hadronic species
-# we verify the pce solutions with the abundancies
-# fixed a bug in f_system_fce introduced in version 6.4
-# in this version we compute also the pressure, and, for doing that, in addition to tensor_densities_* files, we need also the corresponding tensor_Tmunu_* files
-# we give up in computing the PCE if a minimum set of particles is not reached or after the procedure failed for several hadrons in a row
-# the user can set up a list of hadrons that will be evaluated first (useful to help the solution of the PCE EoS equations)
-# it computes also the entropy density
-# fixed an error in getting the strangeness density
-# it uses QS in PCE EoS
-# fixed error in FCE equations (wrong meson counting)
-# it uses also the UrQMD and Monnai's EoSs
-# it saves also rhoB,rhoC and rhoS
-# it reads the energy and number densities and returns the temperatures
-# it works with store_cgnew_v2.1.1.py
-# it uses auxiliary tabulates EoS to guess the initial values, created either with a python script (prepare_T-mu_table.py) and saved in multiple files
-# we assume that each of the coarse data file refers only to one time
+# Gabriele Inghirami - g.inghirami@gsi.de - (2020-2022) - License: GPLv.3
 
 import fileinput
 import math
@@ -51,7 +33,7 @@ tabdata_prefix="run_table_python_20.7.20/tab_eos"
 use_interpolation=False
 
 #minimum number of a particle species to accept a cell:
-particle_count_for_acceptance=100
+particle_count_for_acceptance=40
 
 #cells_to_evaluate can be a tuple of tuples of coordinate points ((x1,y1,z1),(x2,y2,z2),...), a number identifying the z0 coordinate of the transverse plane (x,y,z=z0) or the string "all"
 #cells_to_evaluate="all"
@@ -63,7 +45,7 @@ cells_to_evaluate=((0,0,0),)
 #the output files will maintain the default order, the program takes care to properly rearrange the order again at the end
 use_preferred=True
 #list of hadrons to be evaluated first
-preferred=("kaon0","kaon+","kaon-","kaon0bar","Neutron","Proton")
+preferred=("kaon-","kaon+","kaon0","Neutron","Proton")
 
 #maximum number of failures in solving the PCE for hadron types in a row before giving up (if larger than 35 no limit is effectively in place)
 max_failures=100
@@ -522,13 +504,16 @@ def integrand_en(k,T,mu,mass,s):
 
 def integrand_s(k,T,mu,m,s):
     en=np.sqrt(m**2+k**2)
-    f_dist=1./(np.exp((en-mu)/T) - s) 
-    if(f_dist>0):
-       return f_dist*(math.log(f_dist)-1.)*k**2 
+    #f_dist=1./(np.exp((en-mu)/T) - s)
+    f_dist=1./(np.exp((en-mu)/T))
+    #if((f_dist<0) and verbose):
+    #    print("Warning, in entropy density computation f_dist="+str(f_dist)+"!!")
+    #else:
+    #    return f_dist*(math.log(f_dist)-1.)*k**2
+    if f_dist > 0:
+        return f_dist*(math.log(f_dist)-1.)*k**2
     else:
-       if(verbose):
-          print("Warning, f_dist="+str(f_dist)+"!!")
-       return 0
+        return 0
 
 def check_limits(a,b): #this is just a temporary definition for the function f_system here below, we'll define properly this function later
     return False
@@ -1133,7 +1118,7 @@ for ff in range(nt):
     if(verbose):
         print("Cell widths along x, y and z: "+str(dx)+", "+str(dy)+", "+str(dz))
 
-    if version_2_data_format:
+    if version_2_data_format or smash: #with smash we always use format 2
         xmin=np.fromfile(cdata,dtype=np.float64,count=1)[0]
         ymin=np.fromfile(cdata,dtype=np.float64,count=1)[0]
         zmin=np.fromfile(cdata,dtype=np.float64,count=1)[0]
@@ -1157,7 +1142,7 @@ for ff in range(nt):
       dxref=dx
       dyref=dy
       dzref=dz
-      if version_2_data_format:
+      if version_2_data_format or smash: #with smash we always use format 2
           xstart=xmin+dx/2.
           xend=xmin+(nx-1)*dx
           ystart=ymin+dy/2.
@@ -1192,6 +1177,7 @@ for ff in range(nt):
         muBZ=np.zeros((nt,nx,ny,nz,number_of_particles)) 
         tempPCE=np.zeros((nt,nx,ny,nz,number_of_particles-1))#the last entry of the particle array is for all unidentified particles and does not have a mu 
         muPCE=np.zeros((nt,nx,ny,nz,number_of_particles-1,number_of_particles-1))#we save also the partial results
+        successPCE=np.zeros((nt,nx,ny,nz),dtype=np.int64)#counts the number of successful hadron solutions
         tempFCE=np.zeros((nt,nx,ny,nz))
         tempHGU=np.zeros((nt,nx,ny,nz))
         tempHBSQ=np.zeros((nt,nx,ny,nz,3))
@@ -1212,6 +1198,7 @@ for ff in range(nt):
         muBZ=np.zeros((nt,nx,ny,number_of_particles)) 
         tempPCE=np.zeros((nt,nx,ny,number_of_particles-1))#the last entry of the particle array is for all unidentified particles and does not have a mu 
         muPCE=np.zeros((nt,nx,ny,number_of_particles-1,number_of_particles-1))#we save also the partial results
+        successPCE=np.zeros((nt,nx,ny),dtype=np.int64)#counts the number of successful hadron solutions
         tempFCE=np.zeros((nt,nx,ny))
         tempHGU=np.zeros((nt,nx,ny))
         sHGU=np.zeros((nt,nx,ny))
@@ -1232,6 +1219,7 @@ for ff in range(nt):
         muBZ=np.zeros((nt,ncomp_cells,number_of_particles))
         tempPCE=np.zeros((nt,ncomp_cells,number_of_particles-1))#the last entry of the particle array is for all unidentified particles and does not have a mu 
         muPCE=np.zeros((nt,ncomp_cells,number_of_particles-1,number_of_particles-1))#we save also the partial results
+        successPCE=np.zeros((nt,ncomp_cells),dtype=np.int64)#counts the number of successful hadron solutions
         tempFCE=np.zeros((nt,ncomp_cells))
         tempHGU=np.zeros((nt,ncomp_cells))
         muHGU=np.zeros((nt,ncomp_cells))
@@ -1504,10 +1492,13 @@ for ff in range(nt):
                               count_failures=0
                               if(comp_all):
                                   tempPCE[ff,i,j,k,p]=T_last
+                                  successPCE[ff,i,j,k]+=1
                               elif(comp_trans):
                                   tempPCE[ff,i,j,p]=T_last
+                                  successPCE[ff,i,j]+=1
                               else:
                                   tempPCE[ff,indx_cell,p]=T_last
+                                  successPCE[ff,indx_cell]+=1
                               for aa in range(len(mu_try_arr)):
                                   print(had_names[aa]+"    "+str(TMUPCE.x[aa+1]))
                                   mu_try_arr[aa]=TMUPCE.x[aa+1]
@@ -1550,33 +1541,50 @@ for ff in range(nt):
                 total_particles[ff,p+1]=total_particles[ff,p]+particle_count 
 
                 if(at_least_one):
+                  #here we use the UrQMD HG EoS
+                  if(comp_all):
+                     tempHGU[ff,i,j,k],muHGU[ff,i,j,k],sHGU[ff,i,j,k]=get_T_mub(rhoB_data,ene[ff,i,j,k,-1])
+                  elif(comp_trans):
+                     tempHGU[ff,i,j],muHGU[ff,i,j],sHGU[ff,i,j]=get_T_mub(rhoB_data,ene[ff,i,j,-1])
+                  else:
+                     tempHGU[ff,indx_cell],muHGU[ff,indx_cell],sHGU[ff,indx_cell]=get_T_mub(rhoB_data,ene[ff,indx_cell,-1])
+
+                  #here we use the tabulated EoS by Monnai, Schenke and Chun Shen
+                  if(comp_all):
+                      tempHBSQ[ff,i,j,k,:],muHBSQ[ff,i,j,k,:]=get_T_muBSQ(rhoB_data,ene[ff,i,j,k,-1])
+                  elif(comp_trans):
+                      tempHBSQ[ff,i,j,:],muHBSQ[ff,i,j,:]=get_T_muBSQ(rhoB_data,ene[ff,i,j,-1])
+                  else:
+                      tempHBSQ[ff,indx_cell,:],muHBSQ[ff,indx_cell,:]=get_T_muBSQ(rhoB_data,ene[ff,indx_cell,-1])
+
                   if(comp_all):
                       alist=[ene[ff,i,j,k,-1],rhoB_data,rhoS_data]
                       if((ff>0) and (tempFCE[ff-1,i,j,k]!=0)):
-                              T_last=tempFCE[ff-1,i,j,k]
+                              T_last=(tempFCE[ff-1,i,j,k]+tempHGU[ff,i,j,k])/2
                               muB_guess_FCE,muS_guess_FCE=muFCE[ff-1,i,j,k,:]
                       else:
-                              T_last=T_last*1.5
-                              muB_guess_FCE=1.5*muQS[ff,i,j,k,7]
-                              muS_guess_FCE=muB_guess_FCE/2.
+                              T_last=tempHGU[ff,i,j,k]
+                              muB_guess_FCE=muHGU[ff,i,j,k]
+                              muS_guess_FCE=muB_guess_FCE/2.5
                   elif(comp_trans):
                       alist=[ene[ff,i,j,-1],rhoB_data,rhoS_data]
                       if((ff>0) and (tempFCE[ff-1,i,j]!=0)):
-                              T_last=tempFCE[ff-1,i,j]
+                              T_last=(tempFCE[ff-1,i,j]+tempHGU[ff,i,j])/2
                               muB_guess_FCE,muS_guess_FCE=muFCE[ff-1,i,j,:]
                       else:
-                              T_last=T_last*1.5
-                              muB_guess_FCE=1.5*muQS[ff,i,j,7]
-                              muS_guess_FCE=muB_guess_FCE/2.
+                              T_last=tempHGU[ff,i,j]
+                              muB_guess_FCE=muHGU[ff,i,j]
+                              muS_guess_FCE=muB_guess_FCE/2.5
                   else:
                       alist=[ene[ff,indx_cell,-1],rhoB_data,rhoS_data]
                       if((ff>0) and (tempFCE[ff-1,indx_cell]!=0)):
-                              T_last=tempFCE[ff-1,indx_cell]
+                              T_last=(tempFCE[ff-1,indx_cell]+tempHGU[ff,indx_cell])/2
                               muB_guess_FCE,muS_guess_FCE=muFCE[ff-1,indx_cell,:]
                       else:
-                              T_last=T_last*1.5
-                              muB_guess_FCE=1.5*muQS[ff,indx_cell,7]
-                              muS_guess_FCE=muB_guess_FCE/2.
+                              T_last=tempHGU[ff,indx_cell]
+                              muB_guess_FCE=muHGU[ff,indx_cell]
+                              muS_guess_FCE=muB_guess_FCE/2.5
+
                   if(verbose):    
                       print("Arguments: "+str(alist[0])+"  "+str(alist[1])+"  "+str(alist[2]))
                   
@@ -1612,22 +1620,6 @@ for ff in range(nt):
                   else:
                     if(verbose):  
                         print("FCE failed")
-
-                  #here we use the UrQMD HG EoS
-                  if(comp_all):
-                     tempHGU[ff,i,j,k],muHGU[ff,i,j,k],sHGU[ff,i,j,k]=get_T_mub(rhoB_data,ene[ff,i,j,k,-1])
-                  elif(comp_trans):
-                     tempHGU[ff,i,j],muHGU[ff,i,j],sHGU[ff,i,j]=get_T_mub(rhoB_data,ene[ff,i,j,-1])
-                  else:
-                     tempHGU[ff,indx_cell],muHGU[ff,indx_cell],sHGU[ff,indx_cell]=get_T_mub(rhoB_data,ene[ff,indx_cell,-1])
-
-                  #here we use the tabulated EoS by Monnai, Schenke and Chun Shen
-                  if(comp_all):
-                      tempHBSQ[ff,i,j,k,:],muHBSQ[ff,i,j,k,:]=get_T_muBSQ(rhoB_data,ene[ff,i,j,k,-1])
-                  elif(comp_trans):
-                      tempHBSQ[ff,i,j,:],muHBSQ[ff,i,j,:]=get_T_muBSQ(rhoB_data,ene[ff,i,j,-1])
-                  else:
-                      tempHBSQ[ff,indx_cell,:],muHBSQ[ff,indx_cell,:]=get_T_muBSQ(rhoB_data,ene[ff,indx_cell,-1])
 
                   #now we turn our attention to the pressure components
                   glf_arg=Jb[i,j,k,0]*Jb[i,j,k,0]-Jb[i,j,k,1]*Jb[i,j,k,1]-Jb[i,j,k,2]*Jb[i,j,k,2]-Jb[i,j,k,3]*Jb[i,j,k,3]
@@ -1679,16 +1671,16 @@ for ff in range(nt):
 with open(outputfile,"wb") as po:
     if(comp_all):
         if(verbose):
-            print("Pickling tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,tempFCE,muFCE,ndens,ene,total_particles,tempHGU,muHGU,tempHBSQ,muHBSQ,pcomp")
-        pickle.dump(("all_grid",tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
+             print("Pickling tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp")
+        pickle.dump(("all_grid",tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
     elif comp_trans:
         if(verbose):
-            print("Pickling tt,xx,yy,z=z0,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,tempFCE,muFCE,ndens,ene,total_particles,tempHGU,muHGU,tempHBSQ,muHBSQ,pcomp")
-        pickle.dump(("only_tranverse_plane",tt[0:nt],xx,yy,zcoordinate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,sFCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
+            print("Pickling tt,xx,yy,z=z0,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp")
+        pickle.dump(("only_tranverse_plane",tt[0:nt],xx,yy,zcoordinate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
     else:
         if(verbose):
-            print("Pickling tt,coordinate_list,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,tempFCE,muFCE,ndens,ene,total_particles,tempHGU,muHGU,tempHBSQ,muHBSQ,pcomp),po)")
-        pickle.dump(("coordinate_list",tt[0:nt],cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
+             print("Pickling tt,coordinate_list,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)")
+        pickle.dump(("coordinate_list",tt[0:nt],cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
 
 if(verbose):
     print("All done.")

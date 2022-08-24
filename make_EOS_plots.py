@@ -631,5 +631,5 @@ plt.close('all')
 fout=open(outputfile+"_baryon_density.dat","w")
 fout.write("# column 0: time [fm], colum 1: baryon density [1/fm^3]\n")
 for h in range(nt):
-    fout.write(tf.format(tt[h])+sp+df.format(rho_main[h,index_cell])+"\n")
+    fout.write(tf.format(tt[h])+sp+df.format(rho_main[h,index_cell,0])+"\n")
 fout.close()
