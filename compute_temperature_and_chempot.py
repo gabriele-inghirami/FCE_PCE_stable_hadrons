@@ -1,6 +1,5 @@
-# Gabriele Inghirami - g.inghirami@gsi.de - (2020-2022) - License: GPLv.3
+# Gabriele Inghirami - g.inghirami [ A T ] gsi.de - (2020-2022) - License: GPLv.3
 
-import fileinput
 import math
 import numpy as np
 import sys
@@ -1054,7 +1053,24 @@ def get_T_muBSQ(input_rhoB,input_edens):
       mu_index=mu_index+1
  
   return T_HBQS,mu_HBQS
-        
+    
+# these parameters are defined in the coarse graining code
+shift_resonances_on=100
+shitf_total_baryon_om=10
+total_baryon_included = True
+resonances_included = True
+
+def interpret_output_content(num):
+    if (num < shift_resonances_on):
+        resonances_included = False
+    else:
+        resonances_included = True
+        num-=resonances_included
+    if (num < shift_total_baryon_on):
+        total_baryon_included = False
+    else:
+        total_baryon_included = True
+    
 
 if(verbose):
     print("Reading coarse data files... ")
@@ -1091,7 +1107,21 @@ for ff in range(nt):
     if(verbose):
         print("Time: "+str(time))
 
+    output_content_info=np.fromfile(cdata,dtype=np.int32,count=1)[0]
+    interpret_output_content(output_content_info)
+
     num_of_hadrons=np.fromfile(cdata,dtype=np.int32,count=1)[0]
+
+    if total_baryon_included:
+        offset_tb = +1
+    else:
+        offset_tb = 0
+    if resonances_included:
+        num_of_resonances=np.fromfile(cdata,dtype=np.int32,count=1)[0]
+        offset_res = 3*num_of_resonances
+    else:
+        offset_res = 0
+
     num_part_Tmunu=np.fromfile(Tdata,dtype=np.int32,count=1)[0]
     if(num_part_Tmunu != num_of_hadrons):
        print("FATAL ERROR: different number of hadrons!!! "+Tmunufile+" ("+str(num_part_Tmunu)+") and "+coarsefiles[ff]+" ("+str(num_of_hadrons)+")")
@@ -1190,6 +1220,8 @@ for ff in range(nt):
         ene=np.zeros((nt,nx,ny,nz,number_of_particles+1)) #we include one additional entry for the sum of all particles
         ndens=np.zeros((nt,nx,ny,nz,number_of_particles+1)) #we include one additional entry for the sum of all particles
         pcomp=np.zeros((nt,nx,ny,nz,3))#components of the pressure from Tmunu 
+        if resonances_included:
+            ndens_reso=np.zeros((nt,nx,ny,nz,number_of_resonances))
       if(comp_trans):
         temp=np.zeros((nt,nx,ny,number_of_particles))
         tempQS=np.zeros((nt,nx,ny,number_of_particles))
@@ -1211,6 +1243,8 @@ for ff in range(nt):
         tempHBSQ=np.zeros((nt,nx,ny,3))
         muHBSQ=np.zeros((nt,nx,ny,6))#muB, muB and muS, muB+muS+muQ
         pcomp=np.zeros((nt,nx,ny,3))#components of the pressure from Tmunu 
+        if resonances_included:
+            ndens_reso=np.zeros((nt,nx,ny,number_of_resonances)) 
       if(comp_points):  
         temp=np.zeros((nt,ncomp_cells,number_of_particles))
         tempQS=np.zeros((nt,ncomp_cells,number_of_particles))
@@ -1232,6 +1266,8 @@ for ff in range(nt):
         sHGU=np.zeros((nt,ncomp_cells))
         sFCE=np.zeros((nt,ncomp_cells))
         pcomp=np.zeros((nt,ncomp_cells,3))#components of the pressure from Tmunu 
+        if resonances_included:
+            ndens_reso=np.zeros((nt,ncomp_cells,number_of_resonances))
 
       total_particles=np.zeros((nt,number_of_particles))
       if(verbose):
@@ -1256,7 +1292,8 @@ for ff in range(nt):
         print("Error, the cell width dz along z in file "+coarsefiles[ff]+" does not match with previously read values. I quit.")
         sys.exit(3)
 
-    datas=np.fromfile(cdata,dtype=np.float64,count=nx*ny*nz*(15+3*number_of_particles)).reshape([nx,ny,nz,15+3*number_of_particles])
+    data_size = 14+3*number_of_particles+offset_tb+offset_set
+    datas=np.fromfile(cdata,dtype=np.float64,count=nx*ny*nz*(data_size)).reshape([nx,ny,nz,data_size])
     cdata.close()
     #the loop with internal ifs is not very efficient, nevertheless it is clear, it allows a certain flexibility and it does not slow too much the program
     for i in range(nx):
@@ -1309,9 +1346,9 @@ for ff in range(nt):
                       p=hadron_item
                     if(verbose):
                         print("Cell: "+str(i)+", "+str(j)+", hadron:"+str(p)+", i.e. "+pnames[p]+")")
-                    particle_count=datas[i,j,k,15+3*p]
-                    rho_val=datas[i,j,k,16+3*p]
-                    en_val=datas[i,j,k,17+3*p]
+                    particle_count=datas[i,j,k,14+offset_tb+3*p]
+                    rho_val=datas[i,j,k,15+offset_tb+3*p]
+                    en_val=datas[i,j,k,16+offset_tb+3*p]
                     mtot=mtot+mass_had[p]* rho_val
                     if(comp_all):
                         ene[ff,i,j,k,p]=en_val
@@ -1523,9 +1560,20 @@ for ff in range(nt):
 
                 #p is equal to the last value of the previous loop, i.e. to number_of_particles-2 (the value before number_of_particles - 1),
                 #therefore p+1 points to the last entry (arrays starts counting from 0) which contains the unidentified particles
-                particle_count=datas[i,j,k,15+3*(p+1)]
-                rho_val=datas[i,j,k,16+3*(p+1)]
-                en_val=datas[i,j,k,17+3*(p+1)]
+                particle_count=datas[ff,i,j,k,14+offset_tb+3*(p+1)]
+                rho_val=datas[ff,i,j,k,15+offset_tb+3*(p+1)]
+                en_val=datas[ff,i,j,k,16+offset_tb+3*(p+1)]
+
+                if resonances_included:
+                    for rs in range(num_of_resonances):
+                        if comp_all:
+                            ndens_reso=datas[ff,i,j,k,14+offset_tb+3*(number_of_particle)+3*rs+1]
+                        elif(comp_trans):
+                            ndens_reso=datas[ff,i,j,14+offset_tb+3*(number_of_particle)+3*rs+1]
+                        else:
+                            ndens_reso=datas[ff,indx_cell,14+offset_tb+3*(number_of_particle)+3*rs+1]
+                else:
+                    ndens_reso=0 #we want to avoid to have a separate print case at the end
                 if(comp_all):
                    ene[ff,i,j,k,-1]=ene[ff,i,j,k,-1]+en_val
                    ndens[ff,i,j,k,-1]=ndens[ff,i,j,k,-1]+rho_val
@@ -1671,15 +1719,15 @@ for ff in range(nt):
 with open(outputfile,"wb") as po:
     if(comp_all):
         if(verbose):
-             print("Pickling tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp")
-        pickle.dump(("all_grid",tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
+             print("Pickling tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso")
+        pickle.dump(("all_grid",tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso),po)
     elif comp_trans:
         if(verbose):
-            print("Pickling tt,xx,yy,z=z0,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp")
-        pickle.dump(("only_tranverse_plane",tt[0:nt],xx,yy,zcoordinate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
+            print("Pickling tt,xx,yy,z=z0,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso")
+        pickle.dump(("only_tranverse_plane",tt[0:nt],xx,yy,zcoordinate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso),po)
     else:
         if(verbose):
-             print("Pickling tt,coordinate_list,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)")
+             print("Pickling tt,coordinate_list,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso),po)")
         pickle.dump(("coordinate_list",tt[0:nt],cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
 
 if(verbose):
