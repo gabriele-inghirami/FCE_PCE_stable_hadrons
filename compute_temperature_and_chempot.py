@@ -1327,8 +1327,12 @@ for ff in range(nt):
                 T_try=0.
                 T_last=0.
                 rhoB_data=datas[i,j,k,0]
-                rhoC_data=datas[i,j,k,5]
-                rhoS_data=datas[i,j,k,6]
+                if total_baryon_included:
+                    rhoC_data=datas[i,j,k,5]
+                    rhoS_data=datas[i,j,k,6]
+                else:
+                    rhoC_data=datas[i,j,k,4]
+                    rhoS_data=datas[i,j,k,5]
                 at_least_one=False
                 if(comp_all):
                     rho_main[ff,i,j,k,:]=rhoB_data,rhoC_data,rhoS_data
@@ -1719,16 +1723,16 @@ for ff in range(nt):
 with open(outputfile,"wb") as po:
     if(comp_all):
         if(verbose):
-             print("Pickling tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso")
-        pickle.dump(("all_grid",tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso),po)
+             print("Pickling tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso")
+        pickle.dump(("all_grid",tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso),po)
     elif comp_trans:
         if(verbose):
-            print("Pickling tt,xx,yy,z=z0,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso")
-        pickle.dump(("only_tranverse_plane",tt[0:nt],xx,yy,zcoordinate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso),po)
+            print("Pickling tt,xx,yy,z=z0,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso")
+        pickle.dump(("only_tranverse_plane",tt[0:nt],xx,yy,zcoordinate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso),po)
     else:
         if(verbose):
-             print("Pickling tt,coordinate_list,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndes_reso),po)")
-        pickle.dump(("coordinate_list",tt[0:nt],cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp),po)
+             print("Pickling tt,coordinate_list,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso),po)")
+        pickle.dump(("coordinate_list",tt[0:nt],cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso),po)
 
 if(verbose):
     print("All done.")
