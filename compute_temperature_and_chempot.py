@@ -102,6 +102,7 @@ else:
 
 
 pnames=["pion-","pion+","pion0","kaon0","kaon+","kaon-","kaon0bar","Neutron","Proton","anti-Proton","anti-Neutron","eta","omega","eta1","phi","Lambda1116","anti-Lambda1116","Sigma1192-","Sigma1192+","Sigma1192","anti-Sigma1192-","anti-Sigma1192+","anti-Sigma1192","Xi1317-","Xi1317-0","anti-Xi1317-0","Xi1317+","Lambda1520","anti-Lambda1520","Xi1530-","Xi1530-0","anti-Xi1530-0","Xi1530+","Omega1672","anti-Omega1672","Others"]
+res_names=["rho0","Delta++"]
 mass_urqmd=np.array((0.138,0.138,0.138,0.494,0.494,0.494,0.494,0.938,0.938,0.938,0.938,0.547,0.782,0.958,1.019,1.116,1.116,1.192,1.192,1.192,1.192,1.192,1.192,1.317,1.317,1.317,1.317,1.520,1.520,1.530,1.530,1.530,1.530,1.672,1.672,0),dtype=np.float64)
 mass_smash=np.array((0.138,0.138,0.138,0.494,0.494,0.494,0.494,0.938,0.938,0.938,0.938,0.548,0.783,0.958,1.019,1.116,1.116,1.189,1.189,1.189,1.189,1.189,1.189,1.318,1.318,1.318,1.318,1.520,1.520,1.533,1.533,1.533,1.533,1.672,1.672,0),dtype=np.float64)
 if(smash):
@@ -1719,6 +1720,9 @@ for ff in range(nt):
         print("Hadron counting:")
         for p in range(number_of_particles):
             print(pnames[p]+"    "+'{:12.7e}'.format(total_particles[ff,p]))
+
+if (not resonances_included):
+    ndens_reso="no_resonances"
 
 with open(outputfile,"wb") as po:
     if(comp_all):
