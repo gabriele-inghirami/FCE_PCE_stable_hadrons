@@ -1056,7 +1056,7 @@ def get_T_muBSQ(input_rhoB,input_edens):
     
 # these parameters are defined in the coarse graining code
 shift_resonances_on=100
-shitf_total_baryon_om=10
+shitf_total_baryon_on=10
 total_baryon_included = True
 resonances_included = True
 
@@ -1065,7 +1065,7 @@ def interpret_output_content(num):
         resonances_included = False
     else:
         resonances_included = True
-        num-=resonances_included
+        num-=shift_resonances_on
     if (num < shift_total_baryon_on):
         total_baryon_included = False
     else:
