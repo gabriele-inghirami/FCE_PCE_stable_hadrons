@@ -54,7 +54,7 @@ max_failures=100
 N_input_args=len(sys.argv)-1
 
 if(N_input_args<2):
-   print ('Syntax: ./store_cg.py <coarse file data 1> [coarse file data 2] ... <outputfile>')
+   print ('Syntax: ./compute_temperature_and_chempot.py <coarse file data 1> [coarse file data 2] ... <outputfile>')
    print ("coarse file data 1,2,3...N are the density files produced by the coarse graining code")
    print ("outputfile is obviously the name of the output file with the results of the postprocessing")
    print ("all the necessary informations about the grid and the particles can be found in the info file produced by the coarse graining code")
