@@ -49,11 +49,14 @@ preferred=("kaon-","kaon+","kaon0","Neutron","Proton")
 #maximum number of failures in solving the PCE for hadron types in a row before giving up (if larger than 35 no limit is effectively in place)
 max_failures=100
 
+#quantities per particles (e.g. num, rho, eps)
+qpp=3
+
 #we parse the command line arguments
 N_input_args=len(sys.argv)-1
 
 if(N_input_args<2):
-   print ('Syntax: ./compute_temperature_and_chempot.py <coarse file data 1> [coarse file data 2] ... <outputfile>')
+   print ('Syntax: ./store_cg.py <coarse file data 1> [coarse file data 2] ... <outputfile>')
    print ("coarse file data 1,2,3...N are the density files produced by the coarse graining code")
    print ("outputfile is obviously the name of the output file with the results of the postprocessing")
    print ("all the necessary informations about the grid and the particles can be found in the info file produced by the coarse graining code")
@@ -1109,19 +1112,34 @@ for ff in range(nt):
         print("Time: "+str(time))
 
     output_content_info=np.fromfile(cdata,dtype=np.int32,count=1)[0]
+    output_content_info_Tmunu=np.fromfile(Tdata,dtype=np.int32,count=1)[0]
+    if(output_content_info_Tmunu != output_content_info):
+      print("FATAL ERROR: different output content "+Tmunufile+" ("+str(output_content_info_Tmunu)+") and "+coarsefiles[ff]+" ("+str(output_content_info)+")")
+      sys.exit(4)
+    if(verbose):
+        print("Output content info: "+str(output_content_info))
+
     interpret_output_content(output_content_info)
 
     num_of_hadrons=np.fromfile(cdata,dtype=np.int32,count=1)[0]
 
     if total_baryon_included:
         offset_tb = +1
+        if(verbose):
+            print("Total baryons included")
     else:
         offset_tb = 0
+        if(verbose):
+            print("Total baryons not included")
     if resonances_included:
         num_of_resonances=np.fromfile(cdata,dtype=np.int32,count=1)[0]
-        offset_res = 3*num_of_resonances
+        offset_res = qpp*num_of_resonances
+        if(verbose):
+            print("Resonances included: "+str(num_of_resonances))
     else:
         offset_res = 0
+        if(verbose):
+            print("Resonances not included")
 
     num_part_Tmunu=np.fromfile(Tdata,dtype=np.int32,count=1)[0]
     if(num_part_Tmunu != num_of_hadrons):
@@ -1175,11 +1193,11 @@ for ff in range(nt):
       dzref=dz
       if version_2_data_format or smash: #with smash we always use format 2
           xstart=xmin+dx/2.
-          xend=xmin+(nx-1)*dx
+          xend=xstart+(nx-1)*dx
           ystart=ymin+dy/2.
-          yend=ymin+(ny-1)*dy
+          yend=ystart+(ny-1)*dy
           zstart=zmin+dz/2.
-          zend=zmin+(nz-1)*dz
+          zend=zstart+(nz-1)*dz
       else:
           xstart=-nx*dx/2+dx/2
           xend=nx*dx/2-dx/2
@@ -1222,7 +1240,7 @@ for ff in range(nt):
         ndens=np.zeros((nt,nx,ny,nz,number_of_particles+1)) #we include one additional entry for the sum of all particles
         pcomp=np.zeros((nt,nx,ny,nz,3))#components of the pressure from Tmunu 
         if resonances_included:
-            ndens_reso=np.zeros((nt,nx,ny,nz,number_of_resonances))
+            ndens_reso=np.zeros((nt,nx,ny,nz,num_of_resonances))
       if(comp_trans):
         temp=np.zeros((nt,nx,ny,number_of_particles))
         tempQS=np.zeros((nt,nx,ny,number_of_particles))
@@ -1245,7 +1263,7 @@ for ff in range(nt):
         muHBSQ=np.zeros((nt,nx,ny,6))#muB, muB and muS, muB+muS+muQ
         pcomp=np.zeros((nt,nx,ny,3))#components of the pressure from Tmunu 
         if resonances_included:
-            ndens_reso=np.zeros((nt,nx,ny,number_of_resonances)) 
+            ndens_reso=np.zeros((nt,nx,ny,num_of_resonances)) 
       if(comp_points):  
         temp=np.zeros((nt,ncomp_cells,number_of_particles))
         tempQS=np.zeros((nt,ncomp_cells,number_of_particles))
@@ -1268,7 +1286,7 @@ for ff in range(nt):
         sFCE=np.zeros((nt,ncomp_cells))
         pcomp=np.zeros((nt,ncomp_cells,3))#components of the pressure from Tmunu 
         if resonances_included:
-            ndens_reso=np.zeros((nt,ncomp_cells,number_of_resonances))
+            ndens_reso=np.zeros((nt,ncomp_cells,num_of_resonances))
 
       total_particles=np.zeros((nt,number_of_particles))
       if(verbose):
@@ -1293,10 +1311,14 @@ for ff in range(nt):
         print("Error, the cell width dz along z in file "+coarsefiles[ff]+" does not match with previously read values. I quit.")
         sys.exit(3)
 
-    data_size = 14+3*number_of_particles+offset_tb+offset_set
+    data_size = 14+qpp*number_of_particles+offset_tb+offset_res
+    if (verbose):
+        print("data size is: "+str(data_size))
     datas=np.fromfile(cdata,dtype=np.float64,count=nx*ny*nz*(data_size)).reshape([nx,ny,nz,data_size])
+    if (verbose):
+        print("datas shape is: "+str(datas.shape)) 
     cdata.close()
-    #the loop with internal ifs is not very efficient, nevertheless it is clear, it allows a certain flexibility and it does not slow too much the program
+    #the loop with internal ifs is not very efficient, nevertheless it is clear, it allows a certain flexibility and it does not slow down too much the program
     for i in range(nx):
         for j in range(ny):
             for k in range(nz):
@@ -1315,7 +1337,7 @@ for ff in range(nt):
                      else:
                         indx_cell=cells_to_evaluate.index((xx[i],yy[j],zz[k]))
                 if(verbose):
-                    print("\n*** cell with coordinates: "+str(i)+"   "+str(j))
+                    print("\n*** cell with coordinates: "+str(i)+"   "+str(j)+"   "+str(k))
                 edens_tot=0.
                 mtot=0.
                 mu_try_arr=[]
@@ -1351,9 +1373,9 @@ for ff in range(nt):
                       p=hadron_item
                     if(verbose):
                         print("Cell: "+str(i)+", "+str(j)+", hadron:"+str(p)+", i.e. "+pnames[p]+")")
-                    particle_count=datas[i,j,k,14+offset_tb+3*p]
-                    rho_val=datas[i,j,k,15+offset_tb+3*p]
-                    en_val=datas[i,j,k,16+offset_tb+3*p]
+                    particle_count=datas[i,j,k,14+offset_tb+qpp*p]
+                    rho_val=datas[i,j,k,15+offset_tb+qpp*p]
+                    en_val=datas[i,j,k,16+offset_tb+qpp*p]
                     mtot=mtot+mass_had[p]* rho_val
                     if(comp_all):
                         ene[ff,i,j,k,p]=en_val
@@ -1565,18 +1587,18 @@ for ff in range(nt):
 
                 #p is equal to the last value of the previous loop, i.e. to number_of_particles-2 (the value before number_of_particles - 1),
                 #therefore p+1 points to the last entry (arrays starts counting from 0) which contains the unidentified particles
-                particle_count=datas[ff,i,j,k,14+offset_tb+3*(p+1)]
-                rho_val=datas[ff,i,j,k,15+offset_tb+3*(p+1)]
-                en_val=datas[ff,i,j,k,16+offset_tb+3*(p+1)]
+                particle_count=datas[i,j,k,14+offset_tb+qpp*(p+1)]
+                rho_val=datas[i,j,k,15+offset_tb+qpp*(p+1)]
+                en_val=datas[i,j,k,16+offset_tb+qpp*(p+1)]
 
                 if resonances_included:
                     for rs in range(num_of_resonances):
                         if comp_all:
-                            ndens_reso=datas[ff,i,j,k,14+offset_tb+3*(number_of_particle)+3*rs+1]
+                            ndens_reso[ff,i,j,k,rs]=datas[i,j,k,14+offset_tb+qpp*(number_of_particles)+qpp*rs+1]
                         elif(comp_trans):
-                            ndens_reso=datas[ff,i,j,14+offset_tb+3*(number_of_particle)+3*rs+1]
+                            ndens_reso[ff,i,j,rs]=datas[i,j,k,14+offset_tb+qpp*(number_of_particles)+qpp*rs+1]
                         else:
-                            ndens_reso=datas[ff,indx_cell,14+offset_tb+3*(number_of_particle)+3*rs+1]
+                            ndens_reso[ff,indx_cell,rs]=datas[i,j,k,14+offset_tb+qpp*(number_of_particles)+qpp*rs+1]
                 else:
                     ndens_reso=0 #we want to avoid to have a separate print case at the end
                 if(comp_all):
