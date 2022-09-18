@@ -1,4 +1,4 @@
-#version 6.6.0, 13/05/2022
+#it uses also resonances
 #it saves the data in text files
 #it plots also the energy density and the baryon density
 #it plots also nh/nb and pt/pl
@@ -64,7 +64,7 @@ if(not os.path.isfile(inputfile)):
 with open(inputfile,"rb") as infi:
     data=pickle.load(infi)
 
-tipo,tt,cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp=data[:]
+tipo,tt,cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso=data[:]
 
 nt = len(tt)
 
@@ -117,6 +117,12 @@ hadrons = {
         'Xi1530_plus' : (False,r"$\bar \Xi_{1530}^+$",32),
         'Omega1672' : (False,r"$\Omega_{1672}$",33),
         'anti-Omega1672' : (False,r"$\bar \Omega_{1672}$",34)
+          }
+
+# we use the same data structure, but we are not using all the resonances info as in the case of hadrons
+resonances = {
+        'rho_zero' : (True,r"$\rho^0$",0),
+        'Delta_pp' : (True,r"$\Delta^{++}$",1)
           }
 
 tf='{:6.2f}'
@@ -507,29 +513,35 @@ for h in range(nt):
     fout.write(sp+df.format(1000*tempFCE[h,index_cell]))
 fout.close()
 
-print("\nPlotting the ratio between pions+ and the net baryon number at "+pos_string+"\n")
+print("\nPlotting the ratio between pions+, rho0, Delta++ and the net baryon number at "+pos_string+"\n")
 if print_title:
     plt.title(r"$n_{\pi^+}/n_B$ at "+pos_string)
 plt.xlabel('time [fm]')
-plt.ylabel(r"$n_{\pi^+}/n_B$")
+plt.ylabel(r"$n_{particle}/n_B$")
 plt.xlim([time_min,time_max])
 plt.minorticks_on()
 plt.grid(visible=True, color=grid_color, linestyle=grid_style)
-ratios=np.zeros(len(tt),dtype=np.float64)
+ratios=np.zeros((len(tt),3),dtype=np.float64)
 for ii in range(len(tt)):
     if(rho_main[ii,index_cell,0]!=0):
-        ratios[ii]=ndens[ii,index_cell,hadrons['pion_plus'][2]]/rho_main[ii,index_cell,0]
-plt.plot(tt,ratios)
+        ratios[ii,0]=ndens[ii,index_cell,hadrons['pion_plus'][2]]/rho_main[ii,index_cell,0]
+        ratios[ii,1]=ndens_reso[ii,index_cell,resonances['rho_zero'][2]]/rho_main[ii,index_cell,0]
+        ratios[ii,2]=ndens_reso[ii,index_cell,resonances['Delta_pp'][2]]/rho_main[ii,index_cell,0]
+plt.plot(tt[:-1],ratios[:-1,0],label=hadrons['pion_plus'][1])
+plt.plot(tt[:-1],ratios[:-1,1],label=resonances['rho_zero'][1])
+plt.plot(tt[:-1],ratios[:-1,2],label=resonances['Delta_pp'][1])
+plt.legend()
 plt.tight_layout()
 if ((otype == "png") or (otype== "both")):
-    plt.savefig(outputfile+"_pion_plus_over_net_baryon_density.png",dpi=300,pad_inches=0.)
+    plt.savefig(outputfile+"_pion_plus_and_resonances_over_net_baryon_density.png",dpi=300,pad_inches=0.)
 if ((otype == "pdf") or (otype== "both")):
-    plt.savefig(outputfile+"_pion_plus_over_net_baryon_density.pdf",pad_inches=0.)
+    plt.savefig(outputfile+"_pion_plus_and_resonances_over_net_baryon_density.pdf",pad_inches=0.)
 plt.close('all')
-fout=open(outputfile+"_pion_plus_over_net_baryon_density.dat","w")
-fout.write("# column 0: time [fm], colum 1: ratio between pion plus and net baryon density\n")
+fout=open(outputfile+"_pion_plus_and_resonances_over_net_baryon_density.dat","w")
+fout.write("# column 0: time [fm], colum 1: ratio between pion plus and net baryon density (nbd), column 2: ratio between rho and nbd,"
+        "column 3: ratio between Delta++ and nbd\n")
 for h in range(nt):
-    fout.write(tf.format(tt[h])+sp+df.format(ratios[h])+"\n")
+    fout.write(tf.format(tt[h])+sp+df.format(ratios[h,0])+sp+df.format(ratios[h,1])+sp+df.format(ratios[h,2])+"\n")
 fout.close()
 
 print("\nPlotting the ratio between the transverse and the longitudinal pressure at "+pos_string+"\n")
