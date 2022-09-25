@@ -49,8 +49,20 @@ preferred=("kaon-","kaon+","kaon0","Neutron","Proton")
 #maximum number of failures in solving the PCE for hadron types in a row before giving up (if larger than 35 no limit is effectively in place)
 max_failures=100
 
-#quantities per particles (e.g. num, rho, eps)
-qpp=3
+#quantities per particles (e.g. num, rho, eps, velocities)
+qpp=6
+
+#offsets for quantities per particle
+ndens_offs = 0 # numeric density
+rho_offs = 1 # density
+eps_offs = 2 # energy density
+vx_offs = 3 # vx
+vy_offs = 4 # vy
+vz_offs = 5 # vz
+
+#basic data bloc size: baryon, charge strangenss density, fluid velocity, diffusion current
+bdbs=14
+
 
 #we parse the command line arguments
 N_input_args=len(sys.argv)-1
@@ -1239,8 +1251,11 @@ for ff in range(nt):
         ene=np.zeros((nt,nx,ny,nz,number_of_particles+1)) #we include one additional entry for the sum of all particles
         ndens=np.zeros((nt,nx,ny,nz,number_of_particles+1)) #we include one additional entry for the sum of all particles
         pcomp=np.zeros((nt,nx,ny,nz,3))#components of the pressure from Tmunu 
+        vel_hadro=np.zeros((nt,nx,ny,nz,number_of_particles,3))
+        vel_B=np.zeros((nt,nx,ny,nz,3)) #net baryon flow velocity
         if resonances_included:
             ndens_reso=np.zeros((nt,nx,ny,nz,num_of_resonances))
+            vel_reso=np.zeros((nt,nx,ny,nz,num_of_resonances,3))
       if(comp_trans):
         temp=np.zeros((nt,nx,ny,number_of_particles))
         tempQS=np.zeros((nt,nx,ny,number_of_particles))
@@ -1262,8 +1277,11 @@ for ff in range(nt):
         tempHBSQ=np.zeros((nt,nx,ny,3))
         muHBSQ=np.zeros((nt,nx,ny,6))#muB, muB and muS, muB+muS+muQ
         pcomp=np.zeros((nt,nx,ny,3))#components of the pressure from Tmunu 
+        vel_hadro=np.zeros((nt,nx,ny,number_of_particles,3))
+        vel_B=np.zeros((nt,nx,ny,3)) #net baryon flow velocity
         if resonances_included:
             ndens_reso=np.zeros((nt,nx,ny,num_of_resonances)) 
+            vel_reso=np.zeros((nt,nx,ny,num_of_resonances,3))
       if(comp_points):  
         temp=np.zeros((nt,ncomp_cells,number_of_particles))
         tempQS=np.zeros((nt,ncomp_cells,number_of_particles))
@@ -1285,8 +1303,11 @@ for ff in range(nt):
         sHGU=np.zeros((nt,ncomp_cells))
         sFCE=np.zeros((nt,ncomp_cells))
         pcomp=np.zeros((nt,ncomp_cells,3))#components of the pressure from Tmunu 
+        vel_hadro=np.zeros((nt,ncomp_cells,number_of_particles,3))
+        vel_B=np.zeros((nt,ncomp_cells,3)) #net baryon flow velocity
         if resonances_included:
             ndens_reso=np.zeros((nt,ncomp_cells,num_of_resonances))
+            vel_reso=np.zeros((nt,ncomp_cells,num_of_resonances,3))
 
       total_particles=np.zeros((nt,number_of_particles))
       if(verbose):
@@ -1311,7 +1332,7 @@ for ff in range(nt):
         print("Error, the cell width dz along z in file "+coarsefiles[ff]+" does not match with previously read values. I quit.")
         sys.exit(3)
 
-    data_size = 14+qpp*number_of_particles+offset_tb+offset_res
+    data_size = bdbs+qpp*number_of_particles+offset_tb+offset_res
     if (verbose):
         print("data size is: "+str(data_size))
     datas=np.fromfile(cdata,dtype=np.float64,count=nx*ny*nz*(data_size)).reshape([nx,ny,nz,data_size])
@@ -1322,10 +1343,6 @@ for ff in range(nt):
     for i in range(nx):
         for j in range(ny):
             for k in range(nz):
-#                rho[ff,i,j,k]=datas[i,j,k,0]
-#                vx[ff,i,j,k]=datas[i,j,k,1]
-#                vy[ff,i,j,k]=datas[i,j,k,2]
-#                vz[ff,i,j,k]=datas[i,j,k,3]
                 if(comp_trans):
                     if(zz[k]!=zcoordinate):
                          continue
@@ -1350,6 +1367,7 @@ for ff in range(nt):
                 T_try=0.
                 T_last=0.
                 rhoB_data=datas[i,j,k,0]
+                vel_B_slice=datas[i,j,k,1:4]
                 if total_baryon_included:
                     rhoC_data=datas[i,j,k,5]
                     rhoS_data=datas[i,j,k,6]
@@ -1359,10 +1377,13 @@ for ff in range(nt):
                 at_least_one=False
                 if(comp_all):
                     rho_main[ff,i,j,k,:]=rhoB_data,rhoC_data,rhoS_data
+                    vel_B[ff,i,j,k,:]=vel_B_slice[:]
                 elif(comp_trans):
                     rho_main[ff,i,j,:]=rhoB_data,rhoC_data,rhoS_data
+                    vel_B[ff,i,j,:]=vel_B_slice[:]
                 else:
                     rho_main[ff,indx_cell,:]=rhoB_data,rhoC_data,rhoS_data
+                    vel_B[ff,indx_cell,:]=vel_B_slice[:]
                 if(verbose):
                     print("Net baryon, electric and strange densities: "+str(rhoB_data)+",    "+str(rhoC_data)+",    "+str(rhoS_data))
                 count_failures=0
@@ -1373,24 +1394,28 @@ for ff in range(nt):
                       p=hadron_item
                     if(verbose):
                         print("Cell: "+str(i)+", "+str(j)+", hadron:"+str(p)+", i.e. "+pnames[p]+")")
-                    particle_count=datas[i,j,k,14+offset_tb+qpp*p]
-                    rho_val=datas[i,j,k,15+offset_tb+qpp*p]
-                    en_val=datas[i,j,k,16+offset_tb+qpp*p]
+                    particle_count=datas[i,j,k,bdbs+ndens_offs+offset_tb+qpp*p]
+                    rho_val=datas[i,j,k,bdbs+rho_offs++offset_tb+qpp*p]
+                    en_val=datas[i,j,k,bdbs+eps_offs+offset_tb+qpp*p]
+                    vel_val=datas[i,j,k,bdbs+offset_tb+qpp*p+vx_offs:bdbs+offset_tb+qpp*p+vz_offs+1]
                     mtot=mtot+mass_had[p]* rho_val
                     if(comp_all):
                         ene[ff,i,j,k,p]=en_val
                         ndens[ff,i,j,k,p]=rho_val
                         ene[ff,i,j,k,-1]=ene[ff,i,j,-1]+en_val
+                        vel_hadro[ff,i,j,k,p,:]=vel_val[:]
                         ndens[ff,i,j,k,-1]=ndens[ff,i,j,-1]+rho_val
                     elif(comp_trans):
                         ene[ff,i,j,p]=en_val
                         ndens[ff,i,j,p]=rho_val
                         ene[ff,i,j,-1]=ene[ff,i,j,-1]+en_val
+                        vel_hadro[ff,i,j,p,:]=vel_val[:]
                         ndens[ff,i,j,-1]=ndens[ff,i,j,-1]+rho_val
                     else:
                         ene[ff,indx_cell,p]=en_val
                         ndens[ff,indx_cell,p]=rho_val
                         ene[ff,indx_cell,-1]=ene[ff,indx_cell,-1]+en_val
+                        vel_hadro[ff,indx_cell,p,:]=vel_val[:]
                         ndens[ff,indx_cell,-1]=ndens[ff,indx_cell,-1]+rho_val
                     register_QS=False
                     register_BZ=False
@@ -1587,18 +1612,24 @@ for ff in range(nt):
 
                 #p is equal to the last value of the previous loop, i.e. to number_of_particles-2 (the value before number_of_particles - 1),
                 #therefore p+1 points to the last entry (arrays starts counting from 0) which contains the unidentified particles
-                particle_count=datas[i,j,k,14+offset_tb+qpp*(p+1)]
-                rho_val=datas[i,j,k,15+offset_tb+qpp*(p+1)]
-                en_val=datas[i,j,k,16+offset_tb+qpp*(p+1)]
+                particle_count=datas[i,j,k,bdbs+ndens_offs+offset_tb+qpp*(p+1)]
+                rho_val=datas[i,j,k,bdbs+rho_offs+offset_tb+qpp*(p+1)]
+                en_val=datas[i,j,k,bdbs+eps_offs+offset_tb+qpp*(p+1)]
 
                 if resonances_included:
                     for rs in range(num_of_resonances):
                         if comp_all:
-                            ndens_reso[ff,i,j,k,rs]=datas[i,j,k,14+offset_tb+qpp*(number_of_particles)+qpp*rs+1]
+                            ndens_reso[ff,i,j,k,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+ndens_offs]
+                            vel_reso[ff,i,j,k,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vx_offs:\
+                                    bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vz_offs+1]
                         elif(comp_trans):
-                            ndens_reso[ff,i,j,rs]=datas[i,j,k,14+offset_tb+qpp*(number_of_particles)+qpp*rs+1]
+                            ndens_reso[ff,i,j,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+ndens_offs]
+                            vel_reso[ff,i,j,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vx_offs:\
+                                    bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vz_offs+1]
                         else:
-                            ndens_reso[ff,indx_cell,rs]=datas[i,j,k,14+offset_tb+qpp*(number_of_particles)+qpp*rs+1]
+                            ndens_reso[ff,indx_cell,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+ndens_offs]
+                            vel_reso[ff,indx_cell,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vx_offs:\
+                                    bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vz_offs+1]
                 else:
                     ndens_reso=0 #we want to avoid to have a separate print case at the end
                 if(comp_all):
@@ -1747,18 +1778,15 @@ if (not resonances_included):
     ndens_reso="no_resonances"
 
 with open(outputfile,"wb") as po:
-    if(comp_all):
-        if(verbose):
-             print("Pickling tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso")
-        pickle.dump(("all_grid",tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso),po)
-    elif comp_trans:
-        if(verbose):
-            print("Pickling tt,xx,yy,z=z0,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso")
-        pickle.dump(("only_tranverse_plane",tt[0:nt],xx,yy,zcoordinate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso),po)
+    if (comp_all):
+        output_kind_string="all_grid"
+    elif (comp_trans):
+        output_kind_string="only_tranverse_plane"
     else:
-        if(verbose):
-             print("Pickling tt,coordinate_list,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso),po)")
-        pickle.dump(("coordinate_list",tt[0:nt],cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso),po)
+        output_kind_string="coordinate_list"
+    if(verbose):
+        print("Pickling output_kind_string,tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso,vel_B,vel_reso")
+    pickle.dump((output_kind_string,tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso,vel_B,vel_reso),po)
 
 if(verbose):
     print("All done.")
