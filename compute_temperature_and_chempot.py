@@ -1249,12 +1249,12 @@ for ff in range(nt):
         rho_main=np.zeros((nt,nx,ny,nz,3)) #rho_B, rho_C and rho_S
         muFCE=np.zeros((nt,nx,ny,nz,2))#we have mu_B and mu_S 
         ene=np.zeros((nt,nx,ny,nz,number_of_particles+1)) #we include one additional entry for the sum of all particles
-        ndens=np.zeros((nt,nx,ny,nz,number_of_particles+1)) #we include one additional entry for the sum of all particles
+        rho_hadro=np.zeros((nt,nx,ny,nz,number_of_particles+1)) #we include one additional entry for the sum of all particles
         pcomp=np.zeros((nt,nx,ny,nz,3))#components of the pressure from Tmunu 
         vel_hadro=np.zeros((nt,nx,ny,nz,number_of_particles,3))
         vel_B=np.zeros((nt,nx,ny,nz,3)) #net baryon flow velocity
         if resonances_included:
-            ndens_reso=np.zeros((nt,nx,ny,nz,num_of_resonances))
+            rho_reso=np.zeros((nt,nx,ny,nz,num_of_resonances))
             vel_reso=np.zeros((nt,nx,ny,nz,num_of_resonances,3))
       if(comp_trans):
         temp=np.zeros((nt,nx,ny,number_of_particles))
@@ -1273,14 +1273,14 @@ for ff in range(nt):
         muFCE=np.zeros((nt,nx,ny,2))#we have mu_B and mu_S 
         muHGU=np.zeros((nt,nx,ny)) 
         ene=np.zeros((nt,nx,ny,number_of_particles+1)) #we include one additional entry for the sum of all particles
-        ndens=np.zeros((nt,nx,ny,number_of_particles+1)) #we include one additional entry for the sum of all particles
+        rho_hadro=np.zeros((nt,nx,ny,number_of_particles+1)) #we include one additional entry for the sum of all particles
         tempHBSQ=np.zeros((nt,nx,ny,3))
         muHBSQ=np.zeros((nt,nx,ny,6))#muB, muB and muS, muB+muS+muQ
         pcomp=np.zeros((nt,nx,ny,3))#components of the pressure from Tmunu 
         vel_hadro=np.zeros((nt,nx,ny,number_of_particles,3))
         vel_B=np.zeros((nt,nx,ny,3)) #net baryon flow velocity
         if resonances_included:
-            ndens_reso=np.zeros((nt,nx,ny,num_of_resonances)) 
+            rho_reso=np.zeros((nt,nx,ny,num_of_resonances)) 
             vel_reso=np.zeros((nt,nx,ny,num_of_resonances,3))
       if(comp_points):  
         temp=np.zeros((nt,ncomp_cells,number_of_particles))
@@ -1297,7 +1297,7 @@ for ff in range(nt):
         rho_main=np.zeros((nt,ncomp_cells,3)) #rho_B, rho_C and rho_S
         muFCE=np.zeros((nt,ncomp_cells,2))#the last entry of the particle array is for all unidentified particles and does not have a mu 
         ene=np.zeros((nt,ncomp_cells,number_of_particles+1))
-        ndens=np.zeros((nt,ncomp_cells,number_of_particles+1))
+        rho_hadro=np.zeros((nt,ncomp_cells,number_of_particles+1))
         tempHBSQ=np.zeros((nt,ncomp_cells,3))
         muHBSQ=np.zeros((nt,ncomp_cells,6))#muB, muB and muS, muB+muS+muQ
         sHGU=np.zeros((nt,ncomp_cells))
@@ -1306,7 +1306,7 @@ for ff in range(nt):
         vel_hadro=np.zeros((nt,ncomp_cells,number_of_particles,3))
         vel_B=np.zeros((nt,ncomp_cells,3)) #net baryon flow velocity
         if resonances_included:
-            ndens_reso=np.zeros((nt,ncomp_cells,num_of_resonances))
+            rho_reso=np.zeros((nt,ncomp_cells,num_of_resonances))
             vel_reso=np.zeros((nt,ncomp_cells,num_of_resonances,3))
 
       total_particles=np.zeros((nt,number_of_particles))
@@ -1401,22 +1401,22 @@ for ff in range(nt):
                     mtot=mtot+mass_had[p]* rho_val
                     if(comp_all):
                         ene[ff,i,j,k,p]=en_val
-                        ndens[ff,i,j,k,p]=rho_val
+                        rho_hadro[ff,i,j,k,p]=rho_val
                         ene[ff,i,j,k,-1]=ene[ff,i,j,-1]+en_val
                         vel_hadro[ff,i,j,k,p,:]=vel_val[:]
-                        ndens[ff,i,j,k,-1]=ndens[ff,i,j,-1]+rho_val
+                        rho_hadro[ff,i,j,k,-1]=rho_hadro[ff,i,j,-1]+rho_val
                     elif(comp_trans):
                         ene[ff,i,j,p]=en_val
-                        ndens[ff,i,j,p]=rho_val
+                        rho_hadro[ff,i,j,p]=rho_val
                         ene[ff,i,j,-1]=ene[ff,i,j,-1]+en_val
                         vel_hadro[ff,i,j,p,:]=vel_val[:]
-                        ndens[ff,i,j,-1]=ndens[ff,i,j,-1]+rho_val
+                        rho_hadro[ff,i,j,-1]=rho_hadro[ff,i,j,-1]+rho_val
                     else:
                         ene[ff,indx_cell,p]=en_val
-                        ndens[ff,indx_cell,p]=rho_val
+                        rho_hadro[ff,indx_cell,p]=rho_val
                         ene[ff,indx_cell,-1]=ene[ff,indx_cell,-1]+en_val
                         vel_hadro[ff,indx_cell,p,:]=vel_val[:]
-                        ndens[ff,indx_cell,-1]=ndens[ff,indx_cell,-1]+rho_val
+                        rho_hadro[ff,indx_cell,-1]=rho_hadro[ff,indx_cell,-1]+rho_val
                     register_QS=False
                     register_BZ=False
                     #particle_count=rho_val*nev_times_vol
@@ -1619,28 +1619,28 @@ for ff in range(nt):
                 if resonances_included:
                     for rs in range(num_of_resonances):
                         if comp_all:
-                            ndens_reso[ff,i,j,k,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+ndens_offs]
+                            rho_reso[ff,i,j,k,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+rho_offs]
                             vel_reso[ff,i,j,k,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vx_offs:\
                                     bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vz_offs+1]
                         elif(comp_trans):
-                            ndens_reso[ff,i,j,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+ndens_offs]
+                            rho_reso[ff,i,j,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+rho_offs]
                             vel_reso[ff,i,j,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vx_offs:\
                                     bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vz_offs+1]
                         else:
-                            ndens_reso[ff,indx_cell,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+ndens_offs]
+                            rho_reso[ff,indx_cell,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+rho_offs]
                             vel_reso[ff,indx_cell,rs]=datas[i,j,k,bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vx_offs:\
                                     bdbs+offset_tb+qpp*(number_of_particles)+qpp*rs+vz_offs+1]
                 else:
-                    ndens_reso=0 #we want to avoid to have a separate print case at the end
+                    rho_reso=0 #we want to avoid to have a separate print case at the end
                 if(comp_all):
                    ene[ff,i,j,k,-1]=ene[ff,i,j,k,-1]+en_val
-                   ndens[ff,i,j,k,-1]=ndens[ff,i,j,k,-1]+rho_val
+                   rho_hadro[ff,i,j,k,-1]=rho_hadro[ff,i,j,k,-1]+rho_val
                 elif(comp_trans):
                    ene[ff,i,j,-1]=ene[ff,i,j,-1]+en_val
-                   ndens[ff,i,j,-1]=ndens[ff,i,j,-1]+rho_val
+                   rho_hadro[ff,i,j,-1]=rho_hadro[ff,i,j,-1]+rho_val
                 else:
                    ene[ff,indx_cell,-1]=ene[ff,indx_cell,-1]+en_val
-                   ndens[ff,indx_cell,-1]=ndens[ff,indx_cell,-1]+rho_val
+                   rho_hadro[ff,indx_cell,-1]=rho_hadro[ff,indx_cell,-1]+rho_val
                 #particle_count=rho_val*nev_times_vol
                 if(verbose):
                     print("Unidentified particles count: "+'{:12.7e}'.format(particle_count)+" with associated density: "+'{:12.7e}'.format(rho_val)+" and energy density: "+'{:12.7e}'.format(en_val))
@@ -1775,7 +1775,7 @@ for ff in range(nt):
             print(pnames[p]+"    "+'{:12.7e}'.format(total_particles[ff,p]))
 
 if (not resonances_included):
-    ndens_reso="no_resonances"
+    rho_reso="no_resonances"
 
 with open(outputfile,"wb") as po:
     if (comp_all):
@@ -1785,10 +1785,8 @@ with open(outputfile,"wb") as po:
     else:
         output_kind_string="coordinate_list"
     if(verbose):
-        print("Pickling output_kind_string,tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso,vel_B,vel_reso")
-    pickle.dump((output_kind_string,tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso,vel_B,vel_reso),po)
+        print("Pickling output_kind_string,tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_reso")
+    pickle.dump((output_kind_string,tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_reso),po)
 
 if(verbose):
     print("All done.")
-
-
