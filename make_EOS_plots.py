@@ -1,3 +1,4 @@
+#it plots also velocities
 #it uses also resonances
 #it saves the data in text files
 #it plots also the energy density and the baryon density
@@ -64,7 +65,7 @@ if(not os.path.isfile(inputfile)):
 with open(inputfile,"rb") as infi:
     data=pickle.load(infi)
 
-tipo,tt,cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,ndens,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,ndens_reso=data[:]
+output_kind_string,tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso=data[:]
 
 nt = len(tt)
 
@@ -128,6 +129,15 @@ resonances = {
 tf='{:6.2f}'
 df='{:8.5e}'
 sp="    "
+
+def ratio_v(vh,vB,minval):
+    modvB=math.sqrt(np.sum((vB**2),axis=2))
+    if (modvB > minval):
+        ratio = math.sqrt(np.sum(((vh-vB)**2),axis=2))
+        return ratio
+    else:
+        return 0.
+
 
 print("\nPlotting temperature from e/n at "+pos_string)
 if print_title:
@@ -524,9 +534,9 @@ plt.grid(visible=True, color=grid_color, linestyle=grid_style)
 ratios=np.zeros((len(tt),3),dtype=np.float64)
 for ii in range(len(tt)):
     if(rho_main[ii,index_cell,0]!=0):
-        ratios[ii,0]=ndens[ii,index_cell,hadrons['pion_plus'][2]]/rho_main[ii,index_cell,0]
-        ratios[ii,1]=ndens_reso[ii,index_cell,resonances['rho_zero'][2]]/rho_main[ii,index_cell,0]
-        ratios[ii,2]=ndens_reso[ii,index_cell,resonances['Delta_pp'][2]]/rho_main[ii,index_cell,0]
+        ratios[ii,0]=rho_hadro[ii,index_cell,hadrons['pion_plus'][2]]/rho_main[ii,index_cell,0]
+        ratios[ii,1]=rho_reso[ii,index_cell,resonances['rho_zero'][2]]/rho_main[ii,index_cell,0]
+        ratios[ii,2]=rho_reso[ii,index_cell,resonances['Delta_pp'][2]]/rho_main[ii,index_cell,0]
 plt.plot(tt[:-1],ratios[:-1,0],label=hadrons['pion_plus'][1])
 plt.plot(tt[:-1],ratios[:-1,1],label=resonances['rho_zero'][1])
 plt.plot(tt[:-1],ratios[:-1,2],label=resonances['Delta_pp'][1])
@@ -645,3 +655,41 @@ fout.write("# column 0: time [fm], colum 1: baryon density [1/fm^3]\n")
 for h in range(nt):
     fout.write(tf.format(tt[h])+sp+df.format(rho_main[h,index_cell,0])+"\n")
 fout.close()
+
+print("\nPlotting velocity diff ratios at "+pos_string+"\n")
+vB_minval=1.e-6 # we consider only cells in which the module of the net baryon velocity is larger than vB_minval
+ratio = ratio_v(vel_hadro,vel_B,vB_minval)
+if print_title:
+    plt.title("|v - v_i|/|v| at "+pos_string)
+plt.xlabel('time [fm]')
+plt.ylabel('|v - v_i|/|v|')
+plt.xlim([time_min,time_max])
+plt.minorticks_on()
+plt.grid(visible=True, color=grid_color, linestyle=grid_style)
+linestyle_iterator=itertools.cycle(linestyles)
+plt.plot(tt,ratio[:,index_cell,hadrons['pion_plus'][2]],label=hadrons['pion_plus'][1],linestyle=next(linestyle_iterator))
+plt.plot(tt,ratio[:,index_cell,hadrons['kaon_minus'][2]],label=hadrons['kaon_minus'][1],linestyle=next(linestyle_iterator))
+plt.plot(tt,ratio[:,index_cell,hadrons['eta'][2]],label=hadrons['eta'][1],linestyle=next(linestyle_iterator))
+plt.plot(tt,ratio[:,index_cell,hadrons['Lambda1116'][2]],label=hadrons['Lambda1116'][1],linestyle=next(linestyle_iterator))
+plt.legend()
+plt.tight_layout()
+if ((otype == "png") or (otype== "both")):
+    plt.savefig(outputfile+"_velocity_diff_ratios.png",dpi=300,pad_inches=0.)
+if ((otype == "pdf") or (otype== "both")):
+    plt.savefig(outputfile+"_velocity_diff_ratios.pdf",pad_inches=0.)
+plt.close('all')
+fout=open(outputfile+"_velocity_diff_ratios.dat","w")
+fout.write("# ratio: |v_h-v_B|/|v_B| if |v_B| > "+str(vB_minval)+"\n")
+fout.write("# column 0: time [fm]\n")
+fout.write("# column 1: v_h: positive pions\n")
+fout.write("# column 2: v_h: K-\n")
+fout.write("# column 3: v_h: eta\n")
+fout.write("# column 3: v_h: Lambda 1116\n")
+for h in range(nt):
+    fout.write(tf.format(tt[h]))
+    fout.write(sp+df.format(ratio[h,index_cell,hadrons['pion_plus'][2]]))
+    fout.write(sp+df.format(ratio[h,index_cell,hadrons['kaon_minus'][2]]))
+    fout.write(sp+df.format(ratio[h,index_cell,hadrons['eta'][2]]))
+    fout.write(sp+df.format(ratio[h,index_cell,hadrons['Lambda1116'][2]]))
+fout.close()
+
