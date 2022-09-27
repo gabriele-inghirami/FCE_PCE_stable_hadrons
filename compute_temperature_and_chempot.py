@@ -1780,13 +1780,19 @@ if (not resonances_included):
 with open(outputfile,"wb") as po:
     if (comp_all):
         output_kind_string="all_grid"
+        if(verbose):
+            print("Pickling output_kind_string,tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso")
+        pickle.dump((output_kind_string,tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso),po)
     elif (comp_trans):
         output_kind_string="only_tranverse_plane"
+        if(verbose):
+            print("Pickling output_kind_string,tt[0:nt],xx,yy,zcoordinate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso")
+        pickle.dump((output_kind_string,tt[0:nt],xx,yy,zcoordinate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso),po)
     else:
         output_kind_string="coordinate_list"
-    if(verbose):
-        print("Pickling output_kind_string,tt[0:nt],xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso")
-    pickle.dump((output_kind_string,tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso),po)
+        if(verbose):
+            print("Pickling output_kind_string,tt[0:nt],cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso")
+        pickle.dump((output_kind_string,tt[0:nt],cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso),po)
 
 if(verbose):
     print("All done.")
