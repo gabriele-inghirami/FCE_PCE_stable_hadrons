@@ -20,7 +20,7 @@ chem_min=-100 #minimum chemical potential to plot
 s_max=15 #maximum s to plot
 
 #if True it prints the title in each plot
-print_title=False
+print_title=True
 
 #choose output type: pdf, png or both
 otype="pdf"
@@ -65,7 +65,11 @@ if(not os.path.isfile(inputfile)):
 with open(inputfile,"rb") as infi:
     data=pickle.load(infi)
 
-output_kind_string,tt,xx,yy,zz,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso=data[:]
+output_kind_string,tt,cells_to_evaluate,temp,tempBZ,muBZ,tempQS,muQS,tempPCE,muPCE,successPCE,tempFCE,muFCE,sFCE,rho_main,rho_hadro,ene,total_particles,tempHGU,muHGU,sHGU,tempHBSQ,muHBSQ,pcomp,rho_reso,vel_B,vel_hadro,vel_reso=data[:]
+
+if (output_kind_string != "coordinate_list"):
+    print("Sorry, this script works only with 'coordinate_list' coarse graining output")
+    sys.exit(2)
 
 nt = len(tt)
 
@@ -129,15 +133,6 @@ resonances = {
 tf='{:6.2f}'
 df='{:8.5e}'
 sp="    "
-
-def ratio_v(vh,vB,minval):
-    modvB=math.sqrt(np.sum((vB**2),axis=2))
-    if (modvB > minval):
-        ratio = math.sqrt(np.sum(((vh-vB)**2),axis=2))
-        return ratio
-    else:
-        return 0.
-
 
 print("\nPlotting temperature from e/n at "+pos_string)
 if print_title:
@@ -658,19 +653,27 @@ fout.close()
 
 print("\nPlotting velocity diff ratios at "+pos_string+"\n")
 vB_minval=1.e-6 # we consider only cells in which the module of the net baryon velocity is larger than vB_minval
-ratio = ratio_v(vel_hadro,vel_B,vB_minval)
+modvB=np.sqrt(np.sum((vel_B[:,index_cell,:]**2),axis=1))
+diff_vh_vB=np.zeros_like(vel_hadro[:,index_cell,:,:])
+for i in range(vel_hadro.shape[2]):
+    diff_vh_vB[:,i,:]=vel_hadro[:,index_cell,i,:]-vel_B[:,index_cell,:]
+numerator=np.sqrt(np.sum(diff_vh_vB**2,axis=2))
+ratio=np.zeros_like(numerator)
+for i in range(numerator.shape[1]):
+    np.divide(numerator[:,i],modvB,out=ratio[:,i],where=(modvB > vB_minval))
 if print_title:
     plt.title("|v - v_i|/|v| at "+pos_string)
 plt.xlabel('time [fm]')
-plt.ylabel('|v - v_i|/|v|')
+plt.ylabel('|v - v$_i$|/|v|')
+plt.autoscale()
 plt.xlim([time_min,time_max])
 plt.minorticks_on()
 plt.grid(visible=True, color=grid_color, linestyle=grid_style)
 linestyle_iterator=itertools.cycle(linestyles)
-plt.plot(tt,ratio[:,index_cell,hadrons['pion_plus'][2]],label=hadrons['pion_plus'][1],linestyle=next(linestyle_iterator))
-plt.plot(tt,ratio[:,index_cell,hadrons['kaon_minus'][2]],label=hadrons['kaon_minus'][1],linestyle=next(linestyle_iterator))
-plt.plot(tt,ratio[:,index_cell,hadrons['eta'][2]],label=hadrons['eta'][1],linestyle=next(linestyle_iterator))
-plt.plot(tt,ratio[:,index_cell,hadrons['Lambda1116'][2]],label=hadrons['Lambda1116'][1],linestyle=next(linestyle_iterator))
+plt.plot(tt,ratio[:,hadrons['pion_plus'][2]],label=hadrons['pion_plus'][1],linestyle=next(linestyle_iterator))
+plt.plot(tt,ratio[:,hadrons['kaon_minus'][2]],label=hadrons['kaon_minus'][1],linestyle=next(linestyle_iterator))
+plt.plot(tt,ratio[:,hadrons['eta'][2]],label=hadrons['eta'][1],linestyle=next(linestyle_iterator))
+plt.plot(tt,ratio[:,hadrons['Lambda1116'][2]],label=hadrons['Lambda1116'][1],linestyle=next(linestyle_iterator))
 plt.legend()
 plt.tight_layout()
 if ((otype == "png") or (otype== "both")):
@@ -687,9 +690,9 @@ fout.write("# column 3: v_h: eta\n")
 fout.write("# column 3: v_h: Lambda 1116\n")
 for h in range(nt):
     fout.write(tf.format(tt[h]))
-    fout.write(sp+df.format(ratio[h,index_cell,hadrons['pion_plus'][2]]))
-    fout.write(sp+df.format(ratio[h,index_cell,hadrons['kaon_minus'][2]]))
-    fout.write(sp+df.format(ratio[h,index_cell,hadrons['eta'][2]]))
-    fout.write(sp+df.format(ratio[h,index_cell,hadrons['Lambda1116'][2]]))
+    fout.write(sp+df.format(ratio[h,hadrons['pion_plus'][2]]))
+    fout.write(sp+df.format(ratio[h,hadrons['kaon_minus'][2]]))
+    fout.write(sp+df.format(ratio[h,hadrons['eta'][2]]))
+    fout.write(sp+df.format(ratio[h,hadrons['Lambda1116'][2]]))
 fout.close()
 
